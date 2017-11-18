@@ -4,8 +4,6 @@ import cv2
 import os
 import numpy as np
 import sys
-from watchdog.observers import Observer
-from watchdog.events import PatternMatchingEventHandler
 import webbrowser
 from googleapiclient.discovery import build
 from slackclient import SlackClient
@@ -34,11 +32,8 @@ def slack_message(text):
         text=text
     )
 
-class ImageParser(PatternMatchingEventHandler):
-        def process(self, event):
-            #if the new file has the word screenshot in it perform the text analysis
-            if (event.src_path.find("screenshot") != -1):
-
+class ImageParser():
+        def process(self, file_path):
                 #crop the image to remove the top and bottom of the screen to only parse out the question and answer
                 #people with iphone x's might need to modify this
                 image = cv2.imread(event.src_path)
@@ -105,18 +100,3 @@ class ImageParser(PatternMatchingEventHandler):
 
         def on_created(self, event):
             self.process(event)
-
-if __name__ == '__main__':
-    observer = Observer()
-    observer.schedule(ImageParser(), path='.')
-    observer.start()
-
-    while 1:
-        input("\nPress anything to continue\n")
-        os.system("idevicescreenshot")
-    try:
-        while True:
-            time.sleep(1)
-    except KeyboardInterrupt:
-        observer.stop()
-    observer.join()
