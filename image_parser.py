@@ -100,7 +100,8 @@ class ImageParser(PatternMatchingEventHandler):
                 answer_result['percentage'] = percentage
             for ar in answer_results:
                 print(ar['text'])
-                #slack_message(ar['text'])
+                if("-slack" in sys.argv[1:]):
+                    slack_message(ar['text'])
 
         def on_created(self, event):
             self.process(event)
