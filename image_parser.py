@@ -84,7 +84,10 @@ class ImageParser():
             #just counts the number of times the answers appears in the results
             answer_results = [{'count': 0, 'alpha_key': 'A'}, {'count': 0, 'alpha_key': 'B'}, {'count': 0, 'alpha_key': 'C'}]
             for index, val in enumerate(answers):
-                answer_results[index]['count'] = str(results).count(answers[index])
+                answerCount = 0
+                for key in create_answer_search_keys(answers[index]):
+                    answerCount += str(results).count(key)
+                answer_results[index]['count'] = answerCount
             result_sum = sum(answer_result['count'] for answer_result in answer_results)
             for index, answer_result in enumerate(answer_results):
                 if result_sum == 0:
@@ -97,6 +100,13 @@ class ImageParser():
                 print(ar['text'])
                 if("-slack" in sys.argv[1:]):
                     slack_message(ar['text'])
+
+        def create_answer_search_keys(answer):
+            answerKeys = answer.split()
+            answerKeys.append(answer)
+            answerKeys = map(lambda x: x.lower(), answerKeys)
+            answerKeys = filter(lambda x: x in ["the", "to", "is", "a", "of"], answerKeys)
+            return answerKeys
 
         def on_created(self, event):
             self.process(event)
