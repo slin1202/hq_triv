@@ -3,6 +3,7 @@ import pytesseract
 import cv2
 import os
 import numpy as np
+import sys
 from watchdog.observers import Observer
 from watchdog.events import PatternMatchingEventHandler
 import webbrowser
@@ -10,11 +11,12 @@ from googleapiclient.discovery import build
 from slackclient import SlackClient
 
 #google keys
-my_api_key = ""
-my_cse_id = ""
+google_api_key = os.environ["HQ_GOOGLE_API_KEY"]
+google_cse_id = os.environ["HQ_GOOGLE_CSE_ID"]
 
 #slack api key
-slack_token = ""
+slack_token = os.environ["HQ_SLACK_TOKEN"]
+
 sc = SlackClient(slack_token)
 
 
@@ -48,8 +50,9 @@ class ImageScanner(PatternMatchingEventHandler):
                 gray = cv2.cvtColor(crop, cv2.COLOR_BGR2GRAY)
                 gray = cv2.threshold(gray, 200, 255,
                         cv2.THRESH_BINARY)[1]
-                os.remove(event.src_path)
 
+                if("-save" not in sys.argv[1:]):
+                    os.remove(event.src_path)
                 #creates a new file
                 filename = "{}.png".format(os.getpid())
                 cv2.imwrite(filename, gray)
@@ -69,9 +72,9 @@ class ImageScanner(PatternMatchingEventHandler):
                     #gets the answers from last 3 elements
                     answers = split[len(split) - 3:]
 
-                    score_answers(question, answers)
+                    self.score_answers(question, answers)
 
-        def score_answers(question, answers):
+        def score_answers(self, question, answers):
             print(question)
 
             #UNCOMMENT TO OPEN UP TABS
@@ -81,7 +84,7 @@ class ImageScanner(PatternMatchingEventHandler):
             # url = "https://www.google.com.tr/search?q={}".format(question.replace("&", ""))
             # webbrowser.open_new(url)
 
-            results = google_search(question, my_api_key, my_cse_id, num=9)
+            results = google_search(question, google_api_key, google_cse_id, num=9)
 
             #just counts the number of times the answers appears in the results
             answer_results = [{'count': 0, 'alpha_key': 'A'}, {'count': 0, 'alpha_key': 'B'}, {'count': 0, 'alpha_key': 'C'}]
