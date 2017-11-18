@@ -68,36 +68,39 @@ class ImageScanner(PatternMatchingEventHandler):
                     question = " ".join(split[:len(split) - 3]).replace("\n", " ")
                     #gets the answers from last 3 elements
                     answers = split[len(split) - 3:]
-                    print(question)
 
-                    #UNCOMMENT TO OPEN UP TABS
-                    # for answer in answers:
-                    #     a_url = "https://en.wikipedia.org/wiki/{}".format(answer.replace("&", ""))
-                    #     webbrowser.open_new(a_url)
-                    # url = "https://www.google.com.tr/search?q={}".format(question.replace("&", ""))
-                    # webbrowser.open_new(url)
-                    
-                    results = google_search(
-                        question, my_api_key, my_cse_id, num=9)
+                    score_answers(question, answers)
 
+        def score_answers(question, answers):
+            print(question)
 
-                    #just counts the number of times the answers appears in the results
-                    answer_results = [{'count': 0, 'alpha_key': 'A'}, {'count': 0, 'alpha_key': 'B'}, {'count': 0, 'alpha_key': 'C'}]
-                    for index, val in enumerate(answers):
-                        answer_results[index]['count'] = str(results).count(answers[index])
-                    result_sum = sum(answer_result['count'] for answer_result in answer_results)
-                    for index, answer_result in enumerate(answer_results):
-                        if result_sum == 0:
-                            result_sum = 1
-                        percentage = answer_result['count']/result_sum * 100
-                        text = answer_result['alpha_key'] + ":'" + answers[index].lstrip() + "'(" + str(int(percentage)) + "%)"
-                        answer_result['text'] = text
-                        answer_result['percentage'] = percentage
-                    for ar in answer_results:
-                        print(ar['text'])
-                        #slack_message(ar['text'])
+            #UNCOMMENT TO OPEN UP TABS
+            # for answer in answers:
+            #     a_url = "https://en.wikipedia.org/wiki/{}".format(answer.replace("&", ""))
+            #     webbrowser.open_new(a_url)
+            # url = "https://www.google.com.tr/search?q={}".format(question.replace("&", ""))
+            # webbrowser.open_new(url)
+
+            results = google_search(question, my_api_key, my_cse_id, num=9)
+
+            #just counts the number of times the answers appears in the results
+            answer_results = [{'count': 0, 'alpha_key': 'A'}, {'count': 0, 'alpha_key': 'B'}, {'count': 0, 'alpha_key': 'C'}]
+            for index, val in enumerate(answers):
+                answer_results[index]['count'] = str(results).count(answers[index])
+            result_sum = sum(answer_result['count'] for answer_result in answer_results)
+            for index, answer_result in enumerate(answer_results):
+                if result_sum == 0:
+                    result_sum = 1
+                percentage = answer_result['count']/result_sum * 100
+                text = answer_result['alpha_key'] + ":'" + answers[index].lstrip() + "'(" + str(int(percentage)) + "%)"
+                answer_result['text'] = text
+                answer_result['percentage'] = percentage
+            for ar in answer_results:
+                print(ar['text'])
+                #slack_message(ar['text'])
+
         def on_created(self, event):
-                self.process(event)
+            self.process(event)
 
 if __name__ == '__main__':
     observer = Observer()
