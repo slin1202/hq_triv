@@ -34,7 +34,7 @@ def slack_message(text):
         text=text
     )
 
-class ImageScanner(PatternMatchingEventHandler):
+class ImageParser(PatternMatchingEventHandler):
         def process(self, event):
             #if the new file has the word screenshot in it perform the text analysis
             if (event.src_path.find("screenshot") != -1):
@@ -107,7 +107,7 @@ class ImageScanner(PatternMatchingEventHandler):
 
 if __name__ == '__main__':
     observer = Observer()
-    observer.schedule(ImageScanner(), path='.')
+    observer.schedule(ImageParser(), path='.')
     observer.start()
 
     while 1:
