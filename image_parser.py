@@ -88,7 +88,7 @@ class ImageParser():
         def create_answer_search_keys(self, answer):
             answerKeys = answer.split()
             answerKeys.append(answer)
-            answerKeys = list(filter(lambda x: (x not in ["the"] and len(x) > 2), answerKeys))
+            answerKeys = list(filter(lambda x: (x.lower() not in ["the"] and len(x) > 2), answerKeys))
             return answerKeys
 
         def open_browser(self, question, answers):
