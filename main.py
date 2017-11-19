@@ -1,10 +1,10 @@
-from image_parser import ImageParser
+from file_observer import FileObserver
 from watchdog.observers import Observer
 import os
 
 if __name__ == '__main__':
     observer = Observer()
-    observer.schedule(ImageParser(), path='.')
+    observer.schedule(FileObserver(), path='.')
     observer.start()
 
     while 1:
