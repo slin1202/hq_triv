@@ -66,9 +66,10 @@ class ImageParser():
 
             for index, val in enumerate(answers):
                 answerCount = 0
-                for key in self.create_answer_search_keys(answers[index]):
+                splitAnswers = self.create_answer_search_keys(answers[index])
+                for key in splitAnswers:
                     answerCount += str(results).count(key)
-                answer_results[index]['count'] = answerCount
+                answer_results[index]['count'] = answerCount/len(splitAnswers)
             result_sum = sum(answer_result['count'] for answer_result in answer_results)
             for index, answer_result in enumerate(answer_results):
                 if result_sum == 0:
@@ -87,8 +88,7 @@ class ImageParser():
         def create_answer_search_keys(self, answer):
             answerKeys = answer.split()
             answerKeys.append(answer)
-            #answerKeys = list(map(lambda x: x, answerKeys))
-            answerKeys = list(filter(lambda x: x not in ["the", "to", "is", "a", "of", "by"], answerKeys))
+            answerKeys = list(filter(lambda x: (x not in ["the"] and len(x) > 2), answerKeys))
             return answerKeys
 
         def open_browser(self, question, answers):
@@ -102,7 +102,6 @@ class ImageParser():
         #performs the google search
         def google_search(self, search_term, api_key, cse_id, **kwargs):
             service = build("customsearch", "v1", developerKey=api_key)
-            print(search_term)
             res = service.cse().list(q=search_term, cx=cse_id, **kwargs).execute()
             return res['items']
 
