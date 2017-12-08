@@ -1,6 +1,8 @@
 from file_observer import FileObserver
 from watchdog.observers import Observer
 import os
+import time
+
 
 if __name__ == '__main__':
     observer = Observer()

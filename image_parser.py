@@ -7,6 +7,18 @@ import sys
 import webbrowser
 from googleapiclient.discovery import build
 from slackclient import SlackClient
+from pprint import pprint
+from urllib.parse import urlencode, urlparse, parse_qs
+import xml.etree.ElementTree as ElementTree
+import asyncio
+import threading
+
+from lxml.html import fromstring
+from requests import get
+
+import sys
+from GoogleScraper import scrape_with_config, GoogleSearchError
+from GoogleScraper.database import ScraperSearch, SERP, Link
 
 #google keys
 google_api_key = os.environ["HQ_GOOGLE_API_KEY"]
@@ -17,6 +29,46 @@ slack_token = os.environ["HQ_SLACK_TOKEN"]
 
 sc = SlackClient(slack_token)
 
+full_word_weight = 2
+first_result_weight = 10
+
+def google_scraper(keywords):
+    # See in the config.cfg file for possible values
+    config = {
+        'use_own_ip': True,
+        'keywords': keywords,
+        'search_engines': ['google'],
+        'num_pages_for_keyword': 1,
+        'scrape_method': 'http',
+        'do_caching': False,
+        'google_sleeping_ranges': {
+            1: (0, 1),
+            5: (0, 2),
+            30: (10, 20),
+            127: (30, 50),
+        },
+        'log_level': 'CRITICAL'
+    }
+
+    try:
+        search = scrape_with_config(config)
+    except GoogleSearchError as e:
+        print(e)
+
+    # let's inspect what we got
+    results = ""
+    for serp in search.serps:
+        # ... more attributes ...
+        for link in serp.links:
+            results += str(link.title) + " " + str(link.snippet)
+    return results
+def get_google_results(keyword):
+    url = "https://www.google.com.tr/search?q={}".format(keyword.replace("&", ""))
+    raw = get(url).text
+    page = fromstring(raw)
+    result = str(ElementTree.tostring(page, encoding='utf8', method='xml'))
+    print(result)
+    return result
 class ImageParser():
 
         def process(self, file_path):
@@ -52,43 +104,88 @@ class ImageParser():
                     question = " ".join(split[:len(split) - 3]).replace("\n", " ")
                     #gets the answers from last 3 elements
                     answers = split[len(split) - 3:]
-
                     self.score_answers(question, answers)
 
         def score_answers(self, question, answers):
 
             self.open_browser(question, answers)
+            filteredAnswers = []
+            keywords = [question]
+            # for i, answer in enumerate(answers):
+            #     filteredAnswers.append(' '.join(filter(lambda x: x.lower() not in ["the"],  answer.split())))
+            #     keywords.append(question + " " + filteredAnswers[i])
 
-            results = self.google_search(question, google_api_key, google_cse_id, num=9)
+            result_loop = asyncio.new_event_loop()
+            asyncio.set_event_loop(result_loop)
+            results = []
+            tasks = []
+            # for k, keyword in enumerate(keywords):
+            #     task = asyncio.ensure_future(get_google_results(keyword, k))
+            #     tasks.append(task)
+            # done, _ = result_loop.run_until_complete(asyncio.wait(tasks))
+            #
+            # for fut in done:
+            #     results.append(fut.result())
+            results.append({'text': self.google_search(question, google_api_key, google_cse_id, num=9), 'index': 0})
+            results.append({'text': google_scraper(keywords), 'index': 0})
 
             #just counts the number of times the answers appears in the results
             answer_results = [{'count': 0, 'alpha_key': 'A'}, {'count': 0, 'alpha_key': 'B'}, {'count': 0, 'alpha_key': 'C'}]
+            for r, result in enumerate(results):
+                for a, answer in enumerate(answers):
+                    answerCount = 0
+                    splitArray = [answer.lower()]
+                    for i, key in enumerate(splitArray):
+                        count = str(result['text']).lower().count(key)
+                        original_count = count
+                        if(result['index'] == 0):
+                            count += original_count * first_result_weight
+                        if(i == len(splitArray) - 1):
+                            count += original_count * full_word_weight
+                        answerCount += count
+                    answer_results[a]['count'] += answerCount
+            result_sum = sum(answer_result['count'] for answer_result in answer_results)
 
-            for index, val in enumerate(answers):
-                answerCount = 0
-                splitAnswers = self.create_answer_search_keys(answers[index])
-                for key in splitAnswers:
-                    answerCount += str(results).count(key)
-                answer_results[index]['count'] = answerCount/len(splitAnswers)
+            for r, result in enumerate(results):
+                for a, answer in enumerate(answers):
+                    answerCount = 0
+                    splitArray = self.create_answer_search_keys(answer)
+                    for i, key in enumerate(splitArray):
+                        count = str(result['text']).lower().count(key)/len(splitArray)
+                        count *= 0.5
+                        answerCount += count
+                    answer_results[a]['count'] += answerCount
             result_sum = sum(answer_result['count'] for answer_result in answer_results)
             for index, answer_result in enumerate(answer_results):
                 if result_sum == 0:
                     result_sum = 1
                 percentage = answer_result['count']/result_sum * 100
                 text = answer_result['alpha_key'] + ":'" + answers[index].lstrip() + "'(" + str(int(percentage)) + "%)"
+                text2 = answer_result['alpha_key'] + "'(" + str(int(percentage)) + "%)"
                 answer_result['text'] = text
+                answer_result['text2'] = text2
                 answer_result['percentage'] = percentage
 
-            print(question)
+            append_slack = ""
             for ar in answer_results:
+                append_slack += ar['text2'] + " "
+
+            slack_text = append_slack + " \n" + question + "\n"
+            print(question)
+
+            for ar in answer_results:
+                slack_text += ar['text'] + "\n"
                 print(ar['text'])
-                if("-slack" in sys.argv[1:]):
-                    self.slack_message(ar['text'])
+
+            if("-slack" in sys.argv[1:]):
+                self.slack_message(slack_text)
 
         def create_answer_search_keys(self, answer):
             answerKeys = answer.split()
-            answerKeys.append(answer)
-            answerKeys = list(filter(lambda x: (x.lower() not in ["the"] and len(x) > 2), answerKeys))
+            if(len(answerKeys) > 1):
+                answerKeys.append(answer)
+            answerKeys = list(filter(lambda x: (x.lower() not in ["the"] and len(x) > 2 or x[0].isupper()), answerKeys))
+            answerKeys = list(map(lambda x: x.lower(), answerKeys))
             return answerKeys
 
         def open_browser(self, question, answers):
